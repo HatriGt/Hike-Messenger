@@ -121,31 +121,67 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
     setShowNewChatPopup(true);
   };
 
+  const handleCloseNewChatPopup = () => {
+    setShowNewChatPopup(false);
+  };
+
   return (
     <div className="w-1/3 border-r border-gray-200 flex flex-col bg-white">
-      <div className="p-4">
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+      <div className="p-6">
+        {/* Enhanced user profile and action buttons section */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <div className="w-12 h-12 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-4 shadow-md">
+              {currentUser.photoURL ? (
+                <img src={currentUser.photoURL} alt="Me" className="w-12 h-12 rounded-full" />
+              ) : (
+                <span className="text-2xl font-bold text-white">M</span>
+              )}
+            </div>
+            <span className="font-semibold text-gray-800 text-lg">Me</span>
+          </div>
+          <div className="flex space-x-3">
+            <button 
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#4E9FE5]" 
+              aria-label="New chat"
+              onClick={handleNewChat}
+            >
+              <Plus size={22} className="text-gray-600" />
+            </button>
+            <button className="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#4E9FE5]" aria-label="Notifications">
+              <Bell size={22} className="text-gray-600" />
+            </button>
+            <button className="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#4E9FE5]" aria-label="Settings">
+              <Settings size={22} className="text-gray-600" />
+            </button>
+          </div>
+        </div>
+
+        {/* Enhanced search input */}
+        <div className="relative mb-6">
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search"
+            placeholder="Type to search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 w-full bg-gray-100 border-none rounded-full focus:ring-2 focus:ring-[#4E9FE5] transition-all duration-300"
+            className="pl-12 pr-4 py-3 w-full bg-gray-100 border-none rounded-full focus:ring-2 focus:ring-[#4E9FE5] transition-all duration-300 text-gray-700 placeholder-gray-400"
           />
         </div>
-        <div className="overflow-y-auto h-[calc(100vh-180px)]">
+
+        {/* User list with adjusted height */}
+        <div className="overflow-y-auto h-[calc(100vh-220px)]">
           {users.map((user) => {
             const lastMessage = lastMessages[user.id];
             return (
               <div
                 key={user.id}
-                className={`flex items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer mb-2 ${
+                className={`flex items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer mb-2 transition-colors duration-200 ${
                   selectedUser?.id === user.id ? "bg-gray-100" : ""
                 }`}
                 onClick={() => onSelectUser(user)}
               >
-                <div className="w-12 h-12 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3">
+                <div className="w-12 h-12 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3 shadow-sm">
                   {user.photoURL ? (
                     <img src={user.photoURL} alt={user.displayName} className="w-12 h-12 rounded-full" />
                   ) : (
@@ -168,21 +204,11 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
           })}
         </div>
       </div>
-      <div className="mt-auto p-4 bg-[#4E9FE5] flex justify-between items-center">
-        <p className="text-white font-medium">New Chat</p>
-        <button 
-          className="p-2 rounded-full bg-white text-[#4E9FE5] hover:bg-opacity-90 transition-all duration-300" 
-          aria-label="New Chat"
-          onClick={handleNewChat}
-        >
-          <Plus className="h-5 w-5" />
-        </button>
-      </div>
       {showNewChatPopup && (
         <NewChatPopup
           users={newChatUsers}
+          onClose={handleCloseNewChatPopup}
           onSelectUser={onSelectUser}
-          onClose={() => setShowNewChatPopup(false)}
         />
       )}
     </div>
