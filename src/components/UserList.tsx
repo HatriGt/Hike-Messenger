@@ -111,7 +111,7 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
   };
 
   const renderMessageStatus = (lastMessage: LastMessage | undefined) => {
-    if (!lastMessage || lastMessage.uid === currentUser?.uid) return null;
+    if (!lastMessage || !currentUser || lastMessage.uid === currentUser.uid) return null;
     if (lastMessage.read) return <div className="flex"><Check className="h-4 w-4 text-blue-500" /><Check className="h-4 w-4 text-blue-500 -ml-2" /></div>;
     if (lastMessage.delivered) return <div className="flex"><Check className="h-4 w-4 text-gray-500" /><Check className="h-4 w-4 text-gray-500 -ml-2" /></div>;
     return <Check className="h-4 w-4 text-gray-300" />;

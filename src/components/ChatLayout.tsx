@@ -14,12 +14,16 @@ const ChatLayout: React.FC = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       if (user) {
-        const usersRef = collection(db, 'users');
-        const querySnapshot = await getDocs(usersRef);
-        const userList = querySnapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(u => u.id !== user.uid);
-        setUsers(userList);
+        try {
+          const usersRef = collection(db, 'users');
+          const querySnapshot = await getDocs(usersRef);
+          const userList = querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(u => u.id !== user.uid);
+          setUsers(userList);
+        } catch (error) {
+          console.error("Error fetching users:", error);
+        }
       }
     };
 
@@ -27,10 +31,14 @@ const ChatLayout: React.FC = () => {
 
     const q = query(collection(db, 'users'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const userList = querySnapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((u) => u.id !== user?.uid);
-      setUsers(userList);
+      try {
+        const userList = querySnapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((u) => u.id !== user?.uid);
+        setUsers(userList);
+      } catch (error) {
+        console.error("Error in user snapshot listener:", error);
+      }
     });
 
     return () => unsubscribe();
@@ -61,7 +69,7 @@ const ChatLayout: React.FC = () => {
 
   return (
     <div className="h-screen bg-[#E8EEF1] p-2 flex justify-center items-center">
-      <div className="w-full h-full max-w-[1800px] bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col">
+      <div className="w-full h-full max-w-7xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col">
         <div className="bg-[#4E9FE5] p-4 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-white">hi</h1>
           <button className="text-white" aria-label="Help">

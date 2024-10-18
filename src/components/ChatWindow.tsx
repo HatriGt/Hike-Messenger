@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, orderBy, limit, addDoc, serverTimestamp, where, updateDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Send, Paperclip, Mic, Check } from 'lucide-react';
+import { Send, Paperclip, Smile, Check } from 'lucide-react';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
 interface ChatWindowProps {
   currentUser: any;
@@ -11,8 +12,10 @@ interface ChatWindowProps {
 const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<any[]>([]);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesRef = collection(db, 'messages');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const q = query(
@@ -103,14 +106,36 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
   };
 
   const renderMessageStatus = (msg: any) => {
-    if (msg.uid !== currentUser.uid) return null;
+    if (!msg || msg.uid !== currentUser?.uid) return null;
     if (msg.read) return <div className="flex"><Check className="h-4 w-4 text-blue-500" /><Check className="h-4 w-4 text-blue-500 -ml-2" /></div>;
     if (msg.delivered) return <div className="flex"><Check className="h-4 w-4 text-gray-500" /><Check className="h-4 w-4 text-gray-500 -ml-2" /></div>;
     return <Check className="h-4 w-4 text-gray-300" />;
   };
 
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setMessage(prevMessage => prevMessage + emojiData.emoji);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const isOnlyEmojis = (text: string) => {
+    const emojiRegex = /^[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+$/u;
+    return emojiRegex.test(text);
+  };
+
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-white max-w-4xl mx-auto w-full">
       <div className="p-4 border-b border-gray-200 flex items-center">
         <div className="w-10 h-10 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3">
           {selectedUser.photoURL ? (
@@ -124,46 +149,76 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
           <p className="text-sm text-gray-500">Online</p>
         </div>
       </div>
-      <div className="flex-grow p-4 overflow-y-auto bg-[#E8EEF1]">
-        {messages.map((msg: any, index: number) => (
-          <div
-            key={index}
-            className={`flex ${
-              msg.uid === currentUser.uid ? 'justify-end' : 'justify-start'
-            } mb-4`}
-          >
+      <div className="flex-grow p-4 pr-6 overflow-y-auto bg-[#E8EEF1]">
+        {messages.map((msg: any, index: number) => {
+          const isEmoji = isOnlyEmojis(msg.text);
+          return (
             <div
-              className={`max-w-[70%] rounded-lg p-3 ${
-                msg.uid === currentUser.uid
-                  ? 'bg-[#4E9FE5] text-white'
-                  : 'bg-white text-gray-800'
-              }`}
+              key={index}
+              className={`flex ${
+                msg.uid === currentUser.uid ? 'justify-end' : 'justify-start'
+              } mb-4`}
             >
-              <p>{msg.text}</p>
-              <div className="flex items-center justify-end mt-1">
-                <span className="text-xs opacity-70 mr-1">
-                  {msg.createdAt?.toDate().toLocaleTimeString()}
-                </span>
-                {renderMessageStatus(msg)}
-              </div>
+              {isEmoji ? (
+                <div className="text-4xl px-2 py-1">{msg.text}</div>
+              ) : (
+                <div
+                  className={`max-w-[70%] rounded-lg p-3 ${
+                    msg.uid === currentUser.uid
+                      ? 'bg-[#4E9FE5] text-white'
+                      : 'bg-white text-gray-800'
+                  }`}
+                >
+                  <p>{msg.text}</p>
+                  <div className="flex items-center justify-end mt-1">
+                    <span className="text-xs opacity-70 mr-1">
+                      {msg.createdAt?.toDate().toLocaleTimeString()}
+                    </span>
+                    {renderMessageStatus(msg)}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={bottomRef} />
       </div>
       <div className="p-4 bg-white">
         <form onSubmit={sendMessage} className="flex items-center space-x-2">
-          <button type="button" className="text-gray-500 hover:text-[#4E9FE5]" aria-label="Attach file">
+          <button 
+            type="button" 
+            className="text-gray-500 hover:text-[#4E9FE5]" 
+            aria-label="Attach file"
+          >
             <Paperclip className="h-5 w-5" />
           </button>
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-grow bg-gray-100 border-none rounded-full py-2 px-4 focus:ring-2 focus:ring-[#4E9FE5] transition-all duration-300"
-          />
-          <button type="submit" className="rounded-full bg-[#4E9FE5] text-white p-2 hover:bg-opacity-90 transition-all duration-300" aria-label="Send message">
+          <button 
+            type="button" 
+            className="text-gray-500 hover:text-[#4E9FE5]" 
+            aria-label="Emoji"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          >
+            <Smile className="h-5 w-5" />
+          </button>
+          <div className="relative flex-grow">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type a message..."
+              className="w-full bg-gray-100 border-none rounded-full py-3 px-6 focus:ring-2 focus:ring-[#4E9FE5] transition-all duration-300"
+            />
+            {showEmojiPicker && (
+              <div ref={emojiPickerRef} className="absolute bottom-12 left-0">
+                <EmojiPicker onEmojiClick={handleEmojiClick} />
+              </div>
+            )}
+          </div>
+          <button 
+            type="submit" 
+            className="rounded-full bg-[#4E9FE5] text-white p-3 hover:bg-opacity-90 transition-all duration-300" 
+            aria-label="Send message"
+          >
             <Send className="h-5 w-5" />
           </button>
         </form>
