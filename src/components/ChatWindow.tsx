@@ -4,19 +4,33 @@ import { db } from '../firebase';
 import { Send, Paperclip, Smile, Check } from 'lucide-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import './ChatWindow.css';
+import { useNavigate } from 'react-router-dom';
+import { auth } from '../firebase';
+import { User, Message } from '../types';
 
 interface ChatWindowProps {
-  currentUser: any;
-  selectedUser: any;
+  currentUser: User;
+  selectedUser: User;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) => {
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesRef = collection(db, 'messages');
   const bottomRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (!user) {
+        navigate('/login');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
 
   useEffect(() => {
     const q = query(
@@ -31,11 +45,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
         const updatedMessages = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        })).filter((msg: any) => msg.participants.includes(selectedUser.id));
+        } as Message)).filter(msg => msg.participants.includes(selectedUser.id || selectedUser.uid));
         setMessages(updatedMessages);
 
         // Mark messages as delivered
-        updatedMessages.forEach(async (msg: any) => {
+        updatedMessages.forEach(async (msg) => {
           if (msg.recipientUid === currentUser.uid && !msg.delivered) {
             await updateDoc(doc(messagesRef, msg.id), { delivered: true });
           }
@@ -46,7 +60,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
     });
 
     return () => unsubscribe();
-  }, [currentUser.uid, selectedUser.id]);
+  }, [currentUser.uid, selectedUser.id, selectedUser.uid]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,7 +70,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
     const markMessagesAsRead = async () => {
       try {
         const unreadMessages = messages.filter(
-          (msg: any) => msg.recipientUid === currentUser.uid && !msg.read
+          (msg: Message) => msg.recipientUid === currentUser.uid && !msg.read
         );
         
         for (const msg of unreadMessages) {
@@ -106,7 +120,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
     }
   };
 
-  const renderMessageStatus = (msg: any) => {
+  const renderMessageStatus = (msg: Message) => {
     if (!msg || msg.uid !== currentUser?.uid) return null;
     if (msg.read) return <div className="flex"><Check className="h-4 w-4 text-blue-500" /><Check className="h-4 w-4 text-blue-500 -ml-2" /></div>;
     if (msg.delivered) return <div className="flex"><Check className="h-4 w-4 text-gray-500" /><Check className="h-4 w-4 text-gray-500 -ml-2" /></div>;
@@ -141,9 +155,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
       <div className="sticky top-0 z-10 p-4 border-b border-gray-200 flex items-center bg-white shadow-sm">
         <div className="w-10 h-10 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3">
           {selectedUser.photoURL ? (
-            <img src={selectedUser.photoURL} alt={selectedUser.displayName} className="w-10 h-10 rounded-full" />
+            <img src={selectedUser.photoURL} alt={selectedUser.displayName || ''} className="w-10 h-10 rounded-full" />
           ) : (
-            <span className="text-xl font-bold text-white">{selectedUser.displayName[0]}</span>
+            <span className="text-xl font-bold text-white">{selectedUser.displayName?.[0] || ''}</span>
           )}
         </div>
         <div>
@@ -153,7 +167,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
       </div>
 
       <div className="flex-grow p-4 pr-6 overflow-y-auto bg-[#E8EEF1]">
-        {messages.map((msg: any, index: number) => {
+        {messages.map((msg: Message, index: number) => {
           const isEmoji = isOnlyEmojis(msg.text);
           return (
             <div

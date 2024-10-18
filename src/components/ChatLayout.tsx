@@ -4,12 +4,47 @@ import { collection, query, onSnapshot, getDocs, where, updateDoc, doc } from 'f
 import { auth, db } from '../firebase';
 import UserList from './UserList';
 import ChatWindow from './ChatWindow';
-import { HelpCircle } from 'lucide-react';
+import { IconButton, Avatar, Popover, Box, Typography, Button, CircularProgress, Fade, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import SettingsIcon from '@mui/icons-material/Settings';
+import { signOut } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
+import { User } from '../types';
+import { styled } from '@mui/material/styles';
+
+// Styled components for custom Dialog
+const StyledDialog = styled(Dialog)(({ theme }) => ({
+  '& .MuiDialog-paper': {
+    borderRadius: '20px',
+    padding: theme.spacing(2),
+    backgroundColor: '#E8EEF1',
+  },
+}));
+
+const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
+  color: '#4E9FE5',
+  fontWeight: 'bold',
+}));
+
+const StyledDialogContent = styled(DialogContent)({
+  color: '#666',
+});
+
+const StyledButton = styled(Button)(({ theme }) => ({
+  borderRadius: '25px',
+  padding: theme.spacing(1, 4),
+  textTransform: 'none',
+  fontSize: '1rem',
+  fontWeight: 'bold',
+}));
 
 const ChatLayout: React.FC = () => {
   const [user] = useAuthState(auth);
-  const [users, setUsers] = useState<any[]>([]);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -63,28 +98,122 @@ const ChatLayout: React.FC = () => {
     }
   }, [user]);
 
-  const handleLogout = () => {
-    auth.signOut();
+  const handleSettingsClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget);
   };
 
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogoutClick = () => {
+    setShowLogoutConfirmation(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setIsLoggingOut(true);
+    setShowLogoutConfirmation(false);
+    try {
+      await signOut(auth);
+      setIsLoggingOut(false);
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      setIsLoggingOut(false);
+    }
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutConfirmation(false);
+  };
+
+  const open = Boolean(anchorEl);
+  const id = open ? 'user-popover' : undefined;
+
   return (
-    <div className="h-screen bg-[#E8EEF1] p-2 flex justify-center items-center">
-      <div className="w-full h-full max-w-7xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col">
-        <div className="bg-[#4E9FE5] p-4 flex justify-between items-center">
+    <div className="h-screen bg-[#E8EEF1] p-4 flex justify-center items-center">
+      <div className="w-full h-full max-w-7xl bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col">
+        <div className="bg-[#4E9FE5] p-4 flex justify-between items-center rounded-t-3xl">
           <h1 className="text-3xl font-bold text-white">hi</h1>
-          <button className="text-white" aria-label="Help">
-            <HelpCircle />
-          </button>
+          <IconButton onClick={handleSettingsClick} sx={{ color: 'white' }}>
+            <SettingsIcon />
+          </IconButton>
+          <Popover
+            id={id}
+            open={open}
+            anchorEl={anchorEl}
+            onClose={handleClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            PaperProps={{
+              style: {
+                borderRadius: '20px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+              },
+            }}
+          >
+            <Box sx={{ 
+              p: 4, 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              bgcolor: 'white',
+              borderRadius: '20px',
+              minWidth: '250px',
+            }}>
+              <Avatar
+                src={auth.currentUser?.photoURL || undefined}
+                alt={auth.currentUser?.displayName || 'User'}
+                sx={{ width: 100, height: 100, mb: 2, bgcolor: '#4E9FE5' }}
+              />
+              <Typography variant="h5" gutterBottom sx={{ color: '#333', fontWeight: 'bold' }}>
+                {auth.currentUser?.displayName}
+              </Typography>
+              <Typography variant="body1" sx={{ color: '#666', mb: 3 }}>
+                {auth.currentUser?.email}
+              </Typography>
+              <Button 
+                variant="contained" 
+                onClick={handleLogoutClick}
+                disabled={isLoggingOut}
+                sx={{
+                  bgcolor: '#4E9FE5',
+                  color: 'white',
+                  '&:hover': {
+                    bgcolor: '#3D8CD6',
+                  },
+                  borderRadius: '25px',
+                  px: 4,
+                  py: 1,
+                  textTransform: 'none',
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                }}
+              >
+                {isLoggingOut ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'Logout'
+                )}
+              </Button>
+            </Box>
+          </Popover>
         </div>
         <div className="flex-1 flex overflow-hidden">
           <UserList 
             users={users} 
             onSelectUser={setSelectedUser} 
             selectedUser={selectedUser} 
-            currentUser={user}
+            currentUser={user as User}
           />
           {selectedUser ? (
-            <ChatWindow currentUser={user} selectedUser={selectedUser} />
+            <ChatWindow currentUser={user as User} selectedUser={selectedUser} />
           ) : (
             <div className="flex-1 flex items-center justify-center bg-white">
               <p className="text-xl text-gray-500">Select a user to start chatting</p>
@@ -92,6 +221,41 @@ const ChatLayout: React.FC = () => {
           )}
         </div>
       </div>
+      <StyledDialog
+        open={showLogoutConfirmation}
+        onClose={handleLogoutCancel}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <StyledDialogTitle id="alert-dialog-title">
+          Confirm Logout
+        </StyledDialogTitle>
+        <StyledDialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Are you sure you want to log out?
+          </DialogContentText>
+        </StyledDialogContent>
+        <DialogActions>
+          <StyledButton 
+            onClick={handleLogoutCancel} 
+            sx={{ color: '#4E9FE5', '&:hover': { backgroundColor: 'rgba(78, 159, 229, 0.1)' } }}
+          >
+            Cancel
+          </StyledButton>
+          <StyledButton 
+            onClick={handleLogoutConfirm} 
+            variant="contained"
+            sx={{ 
+              backgroundColor: '#4E9FE5', 
+              color: 'white',
+              '&:hover': { backgroundColor: '#3D8CD6' } 
+            }}
+            autoFocus
+          >
+            Logout
+          </StyledButton>
+        </DialogActions>
+      </StyledDialog>
     </div>
   );
 };
