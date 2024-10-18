@@ -110,23 +110,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
   };
 
   return (
-    <div className="w-2/3 flex flex-col">
-      <div className="p-6 border-b border-gray-200 border-opacity-50">
-        <div className="flex items-center">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center mr-3">
-            {selectedUser.photoURL ? (
-              <img src={selectedUser.photoURL} alt={selectedUser.displayName} className="w-10 h-10 rounded-full" />
-            ) : (
-              <span className="text-xl font-bold text-white">{selectedUser.displayName[0]}</span>
-            )}
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">{selectedUser.displayName}</h2>
-            <p className="text-sm text-gray-500">Online</p>
-          </div>
+    <div className="flex-1 flex flex-col bg-white">
+      <div className="p-4 border-b border-gray-200 flex items-center">
+        <div className="w-10 h-10 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3">
+          {selectedUser.photoURL ? (
+            <img src={selectedUser.photoURL} alt={selectedUser.displayName} className="w-10 h-10 rounded-full" />
+          ) : (
+            <span className="text-xl font-bold text-white">{selectedUser.displayName[0]}</span>
+          )}
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-800">{selectedUser.displayName}</h2>
+          <p className="text-sm text-gray-500">Online</p>
         </div>
       </div>
-      <div className="flex-grow p-6 overflow-y-auto">
+      <div className="flex-grow p-4 overflow-y-auto bg-[#E8EEF1]">
         {messages.map((msg: any, index: number) => (
           <div
             key={index}
@@ -135,10 +133,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
             } mb-4`}
           >
             <div
-              className={`max-w-[70%] rounded-2xl p-4 ${
+              className={`max-w-[70%] rounded-lg p-3 ${
                 msg.uid === currentUser.uid
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white'
-                  : 'bg-white bg-opacity-50 text-gray-800'
+                  ? 'bg-[#4E9FE5] text-white'
+                  : 'bg-white text-gray-800'
               }`}
             >
               <p>{msg.text}</p>
@@ -153,9 +151,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
         ))}
         <div ref={bottomRef} />
       </div>
-      <div className="p-6 bg-white bg-opacity-50">
-        <form onSubmit={sendMessage} className="flex items-center space-x-4">
-          <button type="button" className="text-gray-500 hover:text-indigo-600" aria-label="Attach file">
+      <div className="p-4 bg-white">
+        <form onSubmit={sendMessage} className="flex items-center space-x-2">
+          <button type="button" className="text-gray-500 hover:text-[#4E9FE5]" aria-label="Attach file">
             <Paperclip className="h-5 w-5" />
           </button>
           <input
@@ -163,12 +161,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Type a message..."
-            className="flex-grow bg-white bg-opacity-50 border-none rounded-full py-2 px-4 focus:ring-2 focus:ring-indigo-500 transition-all duration-300"
+            className="flex-grow bg-gray-100 border-none rounded-full py-2 px-4 focus:ring-2 focus:ring-[#4E9FE5] transition-all duration-300"
           />
-          <button type="button" className="text-gray-500 hover:text-indigo-600" aria-label="Voice message">
-            <Mic className="h-5 w-5" />
-          </button>
-          <button type="submit" className="rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-2 hover:opacity-90 transition-all duration-300" aria-label="Send message">
+          <button type="submit" className="rounded-full bg-[#4E9FE5] text-white p-2 hover:bg-opacity-90 transition-all duration-300" aria-label="Send message">
             <Send className="h-5 w-5" />
           </button>
         </form>

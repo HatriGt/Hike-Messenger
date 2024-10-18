@@ -4,7 +4,7 @@ import { collection, query, onSnapshot, getDocs, where, updateDoc, doc } from 'f
 import { auth, db } from '../firebase';
 import UserList from './UserList';
 import ChatWindow from './ChatWindow';
-import { Bell, Settings, LogOut } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 
 const ChatLayout: React.FC = () => {
   const [user] = useAuthState(auth);
@@ -60,21 +60,29 @@ const ChatLayout: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 p-2 flex justify-center items-center">
-      <div className="w-full h-full max-w-[1800px] bg-white bg-opacity-20 backdrop-filter backdrop-blur-lg rounded-2xl shadow-xl overflow-hidden flex">
-        <UserList 
-          users={users} 
-          onSelectUser={setSelectedUser} 
-          selectedUser={selectedUser} 
-          currentUser={user}
-        />
-        {selectedUser ? (
-          <ChatWindow currentUser={user} selectedUser={selectedUser} />
-        ) : (
-          <div className="flex-1 flex items-center justify-center bg-white bg-opacity-50">
-            <p className="text-xl text-gray-500">Select a user to start chatting</p>
-          </div>
-        )}
+    <div className="h-screen bg-[#E8EEF1] p-2 flex justify-center items-center">
+      <div className="w-full h-full max-w-[1800px] bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        <div className="bg-[#4E9FE5] p-4 flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-white">hi</h1>
+          <button className="text-white" aria-label="Help">
+            <HelpCircle />
+          </button>
+        </div>
+        <div className="flex-1 flex overflow-hidden">
+          <UserList 
+            users={users} 
+            onSelectUser={setSelectedUser} 
+            selectedUser={selectedUser} 
+            currentUser={user}
+          />
+          {selectedUser ? (
+            <ChatWindow currentUser={user} selectedUser={selectedUser} />
+          ) : (
+            <div className="flex-1 flex items-center justify-center bg-white">
+              <p className="text-xl text-gray-500">Select a user to start chatting</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

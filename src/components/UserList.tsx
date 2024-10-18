@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Search, Plus, Bell, Settings, Check } from 'lucide-react';
+import NewChatPopup from './NewChatPopup';
 
 interface User {
   id: string;
@@ -24,9 +25,11 @@ interface LastMessage {
 const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, currentUser }) => {
   const [lastMessages, setLastMessages] = useState<{[key: string]: LastMessage}>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const [showNewChatPopup, setShowNewChatPopup] = useState(false);
+  const [newChatUsers, setNewChatUsers] = useState<User[]>([]);
 
   useEffect(() => {
-    if (!currentUser) return; // Add this check
+    if (!currentUser) return;
 
     const fetchLastMessages = async () => {
       const messagesRef = collection(db, 'messages');
@@ -46,12 +49,16 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
           const lastMessage = querySnapshot.docs[0].data();
           lastMessagesMap[user.id] = {
             text: lastMessage.text,
-            createdAt: lastMessage.createdAt?.toDate() // Add optional chaining
+            createdAt: lastMessage.createdAt?.toDate()
           };
         }
       }
 
       setLastMessages(lastMessagesMap);
+      
+      // Filter out users that the current user has already chatted with
+      const newUsers = users.filter(user => !lastMessagesMap[user.id]);
+      setNewChatUsers(newUsers);
     };
 
     fetchLastMessages();
@@ -74,7 +81,7 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
               const prevMessage = prev[otherUserId];
               const newMessage = {
                 text: message.text,
-                createdAt: message.createdAt?.toDate() // Add optional chaining
+                createdAt: message.createdAt?.toDate()
               };
               if (!prevMessage || (newMessage.createdAt && (!prevMessage.createdAt || newMessage.createdAt > prevMessage.createdAt))) {
                 return { ...prev, [otherUserId]: newMessage };
@@ -89,7 +96,7 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
     return () => unsubscribe();
   }, [users, currentUser]);
 
-  const formatTime = (date: Date | undefined) => { // Make date optional
+  const formatTime = (date: Date | undefined) => {
     if (!date) return '';
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -103,49 +110,42 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
     return 'Now';
   };
 
-  const renderMessageStatus = (lastMessage: LastMessage | undefined) => { // Make lastMessage optional
+  const renderMessageStatus = (lastMessage: LastMessage | undefined) => {
     if (!lastMessage || lastMessage.uid === currentUser?.uid) return null;
     if (lastMessage.read) return <div className="flex"><Check className="h-4 w-4 text-blue-500" /><Check className="h-4 w-4 text-blue-500 -ml-2" /></div>;
     if (lastMessage.delivered) return <div className="flex"><Check className="h-4 w-4 text-gray-500" /><Check className="h-4 w-4 text-gray-500 -ml-2" /></div>;
     return <Check className="h-4 w-4 text-gray-300" />;
   };
 
+  const handleNewChat = () => {
+    setShowNewChatPopup(true);
+  };
+
   return (
-    <div className="w-1/3 border-r border-gray-200 border-opacity-50 flex flex-col">
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Chats</h1>
-          <div className="flex space-x-2">
-            <button className="p-2 rounded-full bg-white bg-opacity-50 hover:bg-opacity-75 transition-all duration-300" aria-label="Notifications">
-              <Bell className="h-5 w-5 text-gray-600" />
-            </button>
-            <button className="p-2 rounded-full bg-white bg-opacity-50 hover:bg-opacity-75 transition-all duration-300" aria-label="Settings">
-              <Settings className="h-5 w-5 text-gray-600" />
-            </button>
-          </div>
-        </div>
-        <div className="relative mb-6">
+    <div className="w-1/3 border-r border-gray-200 flex flex-col bg-white">
+      <div className="p-4">
+        <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search conversations"
+            placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 w-full bg-white bg-opacity-50 border-none rounded-full focus:ring-2 focus:ring-indigo-500 transition-all duration-300"
+            className="pl-10 pr-4 py-2 w-full bg-gray-100 border-none rounded-full focus:ring-2 focus:ring-[#4E9FE5] transition-all duration-300"
           />
         </div>
-        <div className="overflow-y-auto h-[calc(100%-130px)]">
+        <div className="overflow-y-auto h-[calc(100vh-180px)]">
           {users.map((user) => {
             const lastMessage = lastMessages[user.id];
             return (
               <div
                 key={user.id}
-                className={`flex items-center p-4 rounded-2xl hover:bg-white hover:bg-opacity-50 transition-all duration-300 cursor-pointer mb-2 ${
-                  selectedUser?.id === user.id ? "bg-white bg-opacity-50" : ""
+                className={`flex items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer mb-2 ${
+                  selectedUser?.id === user.id ? "bg-gray-100" : ""
                 }`}
                 onClick={() => onSelectUser(user)}
               >
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center mr-3">
+                <div className="w-12 h-12 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3">
                   {user.photoURL ? (
                     <img src={user.photoURL} alt={user.displayName} className="w-12 h-12 rounded-full" />
                   ) : (
@@ -155,12 +155,9 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
                     <span className="font-semibold text-gray-800">{user.displayName}</span>
-                    <div className="flex items-center">
-                      {renderMessageStatus(lastMessage)}
-                      <span className="text-xs text-gray-400 ml-1">
-                        {lastMessage ? formatTime(lastMessage.createdAt) : ''}
-                      </span>
-                    </div>
+                    <span className="text-xs text-gray-400">
+                      {lastMessage ? formatTime(lastMessage.createdAt) : ''}
+                    </span>
                   </div>
                   <p className="text-sm text-gray-500 truncate">
                     {lastMessage ? lastMessage.text : 'No messages yet'}
@@ -171,12 +168,23 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
           })}
         </div>
       </div>
-      <div className="mt-auto p-6 bg-gradient-to-r from-indigo-500 to-purple-500 flex justify-between items-center">
+      <div className="mt-auto p-4 bg-[#4E9FE5] flex justify-between items-center">
         <p className="text-white font-medium">New Chat</p>
-        <button className="p-2 rounded-full bg-white text-indigo-600 hover:bg-opacity-90 transition-all duration-300" aria-label="New Chat">
+        <button 
+          className="p-2 rounded-full bg-white text-[#4E9FE5] hover:bg-opacity-90 transition-all duration-300" 
+          aria-label="New Chat"
+          onClick={handleNewChat}
+        >
           <Plus className="h-5 w-5" />
         </button>
       </div>
+      {showNewChatPopup && (
+        <NewChatPopup
+          users={newChatUsers}
+          onSelectUser={onSelectUser}
+          onClose={() => setShowNewChatPopup(false)}
+        />
+      )}
     </div>
   );
 };
