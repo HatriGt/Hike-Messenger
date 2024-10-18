@@ -7,6 +7,7 @@ import './ChatWindow.css';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { User, Message } from '../types';
+import { formatTimestamp } from '../utils';
 
 interface ChatWindowProps {
   currentUser: User;
@@ -120,11 +121,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
     }
   };
 
-  const renderMessageStatus = (msg: Message) => {
-    if (!msg || msg.uid !== currentUser?.uid) return null;
-    if (msg.read) return <div className="flex"><Check className="h-4 w-4 text-blue-500" /><Check className="h-4 w-4 text-blue-500 -ml-2" /></div>;
-    if (msg.delivered) return <div className="flex"><Check className="h-4 w-4 text-gray-500" /><Check className="h-4 w-4 text-gray-500 -ml-2" /></div>;
-    return <Check className="h-4 w-4 text-gray-300" />;
+  const renderMessage = (message: Message) => {
+    return (
+      <div className={`message ${message.uid === currentUser?.uid ? 'sent' : 'received'}`} key={message.id}>
+        <p>{message.text}</p>
+        <span className="timestamp">
+          {formatTimestamp(message.createdAt)}
+          {message.uid === currentUser?.uid && (
+            <span className="read-status">
+              ✓✓
+              {message.read && <span className="read-indicator">R</span>}
+            </span>
+          )}
+        </span>
+      </div>
+    );
   };
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
@@ -145,7 +156,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
   }, []);
 
   const isOnlyEmojis = (text: string) => {
-    const emojiRegex = /^[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+$/u;
+    const emojiRegex = /^[\p{Emoji}]+$/u;
     return emojiRegex.test(text);
   };
 
@@ -166,7 +177,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
         </div>
       </div>
 
-      <div className="flex-grow p-4 pr-6 overflow-y-auto bg-[#E8EEF1]">
+      <div className="flex-grow p-4 overflow-y-auto bg-[#E8EEF1]">
         {messages.map((msg: Message, index: number) => {
           const isEmoji = isOnlyEmojis(msg.text);
           return (
@@ -174,27 +185,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
               key={index}
               className={`flex ${
                 msg.uid === currentUser.uid ? 'justify-end' : 'justify-start'
-              } mb-4`}
+              } mb-2`}
             >
-              {isEmoji ? (
-                <div className="text-4xl px-2 py-1">{msg.text}</div>
-              ) : (
-                <div
-                  className={`max-w-[70%] rounded-lg p-3 ${
-                    msg.uid === currentUser.uid
-                      ? 'bg-[#4E9FE5] text-white'
-                      : 'bg-white text-gray-800'
-                  }`}
-                >
-                  <p>{msg.text}</p>
-                  <div className="flex items-center justify-end mt-1">
-                    <span className="text-xs opacity-70 mr-1">
-                      {msg.createdAt?.toDate().toLocaleTimeString()}
-                    </span>
-                    {renderMessageStatus(msg)}
+              <div
+                className={`max-w-[70%] ${
+                  isEmoji ? 'emoji-only' : 'rounded-lg py-1 px-2'
+                } ${
+                  msg.uid === currentUser.uid
+                    ? isEmoji ? '' : 'bg-[#4E9FE5] text-white message-sent'
+                    : isEmoji ? '' : 'bg-white text-gray-800 message-received'
+                }`}
+              >
+                <div className={`flex items-end ${isEmoji ? 'flex-col' : 'justify-between'}`}>
+                  <p className={`${isEmoji ? 'text-4xl' : 'text-sm'} mr-2`}>{msg.text}</p>
+                  <div className={`flex items-center text-xs whitespace-nowrap ${isEmoji ? 'emoji-status' : ''}`}>
+                    <span>{formatTimestamp(msg.createdAt)}</span>
+                    {msg.uid === currentUser.uid && (
+                      <span className="ml-1 read-status">
+                        <span className="double-tick">✓✓</span>{msg.read && <span className="read-indicator">R</span>}
+                      </span>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           );
         })}

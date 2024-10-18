@@ -17,3 +17,132 @@
   max-height: calc(100vh - 150px); /* Adjust based on your layout */
   padding: 10px;
 }
+
+.message .timestamp {
+  font-size: 0.8em;
+  color: #888;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.read-status {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  margin-left: 4px;
+}
+
+.double-tick {
+  letter-spacing: -0.2em; /* Adjust this value to bring the ticks closer */
+  margin-right: 0.1em; /* Add a small space before the 'R' */
+}
+
+.read-indicator {
+  margin-left: 2px;
+  font-weight: bold;
+}
+
+.message-sent,
+.message-received {
+  position: relative;
+  padding: 4px 8px;
+  border-radius: 12px;
+  max-width: 70%;
+  margin-bottom: 4px;
+}
+
+.message-sent {
+  background-color: #4E9FE5;
+  color: white;
+  border-bottom-right-radius: 2px;
+}
+
+.message-received {
+  background-color: white;
+  color: #333;
+  border-bottom-left-radius: 2px;
+}
+
+.message-sent::after,
+.message-received::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 8px;
+  height: 13px;
+}
+
+.message-sent::after {
+  right: -8px;
+  border-bottom-left-radius: 16px 14px;
+  box-shadow: -6px 0 0 0 #4E9FE5;
+}
+
+.message-received::after {
+  left: -8px;
+  border-bottom-right-radius: 16px 14px;
+  box-shadow: 6px 0 0 0 white;
+}
+
+/* Add this new style for the timestamp and read status */
+.message-sent .text-xs,
+.message-received .text-xs {
+  color: rgba(255, 255, 255, 0.7); /* Semi-transparent white for sent messages */
+}
+
+.message-received .text-xs {
+  color: rgba(0, 0, 0, 0.5); /* Semi-transparent black for received messages */
+}
+
+/* Style for the double tick and R indicator */
+.text-gray-400 {
+  color: rgba(255, 255, 255, 0.7) !important; /* Override for sent messages */
+}
+
+.message-received .text-gray-400 {
+  color: rgba(0, 0, 0, 0.5) !important; /* Override for received messages */
+}
+
+/* Adjust the message container padding */
+.flex-grow.p-4 {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.emoji-only {
+  background-color: transparent;
+  padding: 4px;
+}
+
+.emoji-only .text-4xl {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.emoji-only .text-xs {
+  font-size: 0.65rem;
+  opacity: 0.5;
+}
+
+.emoji-status {
+  font-size: 0.6rem;
+  opacity: 0.5;
+  margin-top: 2px;
+  color: inherit; /* This ensures the color matches the parent text color */
+}
+
+.emoji-status .read-status {
+  margin-left: 2px;
+  color: inherit; /* This ensures the color matches the parent text color */
+}
+
+.emoji-status .double-tick {
+  font-size: 0.7rem;
+  color: inherit; /* This ensures the color matches the parent text color */
+}
+
+.emoji-status .read-indicator {
+  font-weight: bold;
+  color: inherit; /* This ensures the color matches the parent text color */
+}
