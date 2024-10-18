@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, query, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, getDocs, where, updateDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import UserList from './UserList';
 import ChatWindow from './ChatWindow';
-import { LogOut } from 'lucide-react';
+import { Bell, Settings, LogOut } from 'lucide-react';
 
 const ChatLayout: React.FC = () => {
   const [user] = useAuthState(auth);
@@ -36,25 +36,46 @@ const ChatLayout: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
+  useEffect(() => {
+    if (user) {
+      const markMessagesAsDelivered = async () => {
+        const q = query(
+          collection(db, 'messages'),
+          where('recipientUid', '==', user.uid),
+          where('delivered', '==', false)
+        );
+
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach(async (document) => {
+          await updateDoc(doc(db, 'messages', document.id), { delivered: true });
+        });
+      };
+
+      markMessagesAsDelivered();
+    }
+  }, [user]);
+
   const handleLogout = () => {
     auth.signOut();
   };
 
   return (
-    <div className="flex h-full bg-gray-100">
-      <UserList 
-        users={users} 
-        onSelectUser={setSelectedUser} 
-        selectedUser={selectedUser} 
-        currentUser={user}
-      />
-      {selectedUser ? (
-        <ChatWindow currentUser={user} selectedUser={selectedUser} />
-      ) : (
-        <div className="flex-1 flex items-center justify-center bg-white">
-          <p className="text-xl text-gray-500">Select a user to start chatting</p>
-        </div>
-      )}
+    <div className="h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 p-2 flex justify-center items-center">
+      <div className="w-full h-full max-w-[1800px] bg-white bg-opacity-20 backdrop-filter backdrop-blur-lg rounded-2xl shadow-xl overflow-hidden flex">
+        <UserList 
+          users={users} 
+          onSelectUser={setSelectedUser} 
+          selectedUser={selectedUser} 
+          currentUser={user}
+        />
+        {selectedUser ? (
+          <ChatWindow currentUser={user} selectedUser={selectedUser} />
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-white bg-opacity-50">
+            <p className="text-xl text-gray-500">Select a user to start chatting</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

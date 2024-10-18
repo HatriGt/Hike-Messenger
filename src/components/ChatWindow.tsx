@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, orderBy, limit, addDoc, serverTimestamp, where } from 'firebase/firestore';
-import { useCollectionData } from 'react-firebase-hooks/firestore';
+import { collection, query, orderBy, limit, addDoc, serverTimestamp, where, updateDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Send } from 'lucide-react';
+import { Send, Paperclip, Mic, Check } from 'lucide-react';
 
 interface ChatWindowProps {
   currentUser: any;
@@ -11,20 +10,61 @@ interface ChatWindowProps {
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) => {
   const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState<any[]>([]);
   const messagesRef = collection(db, 'messages');
-  const q = query(
-    messagesRef,
-    where('participants', 'array-contains', currentUser.uid),
-    orderBy('createdAt', 'asc'),  // Changed to ascending order
-    limit(50)
-  );
-
-  const [messages, loading, error] = useCollectionData(q);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const q = query(
+      messagesRef,
+      where('participants', 'array-contains', currentUser.uid),
+      orderBy('createdAt', 'asc'),
+      limit(50)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      try {
+        const updatedMessages = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })).filter((msg: any) => msg.participants.includes(selectedUser.id));
+        setMessages(updatedMessages);
+
+        // Mark messages as delivered
+        updatedMessages.forEach(async (msg: any) => {
+          if (msg.recipientUid === currentUser.uid && !msg.delivered) {
+            await updateDoc(doc(messagesRef, msg.id), { delivered: true });
+          }
+        });
+      } catch (error) {
+        console.error("Error in onSnapshot:", error);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [currentUser.uid, selectedUser.id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const markMessagesAsRead = async () => {
+      try {
+        const unreadMessages = messages.filter(
+          (msg: any) => msg.recipientUid === currentUser.uid && !msg.read
+        );
+        
+        for (const msg of unreadMessages) {
+          await updateDoc(doc(messagesRef, msg.id), { read: true });
+        }
+      } catch (error) {
+        console.error("Error marking messages as read:", error);
+      }
+    };
+
+    markMessagesAsRead();
+  }, [messages, currentUser.uid]);
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,80 +79,100 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
         photoURL: currentUser.photoURL,
         recipientUid: selectedUser.id,
         participants: [currentUser.uid, selectedUser.id],
+        delivered: false,
+        read: false,
       };
-      await addDoc(messagesRef, newMessage);
+
+      console.log("Sending message:", newMessage);
+      const docRef = await addDoc(messagesRef, newMessage);
+      console.log("Message sent, docRef:", docRef.id);
       setMessage('');
+
+      // Simulate delivery after a short delay
+      setTimeout(async () => {
+        try {
+          await updateDoc(doc(messagesRef, docRef.id), { delivered: true });
+          console.log("Message marked as delivered");
+        } catch (error) {
+          console.error("Error marking message as delivered:", error);
+        }
+      }, 1000);
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error("Error sending message:", error);
     }
   };
 
-  if (loading) {
-    return <div>Loading messages...</div>;
-  }
-
-  if (error) {
-    return <div>Error: {error.message}</div>;
-  }
-
-  const filteredMessages = messages?.filter(
-    (msg: any) => msg.participants.includes(selectedUser.id)
-  ) || [];
+  const renderMessageStatus = (msg: any) => {
+    if (msg.uid !== currentUser.uid) return null;
+    if (msg.read) return <div className="flex"><Check className="h-4 w-4 text-blue-500" /><Check className="h-4 w-4 text-blue-500 -ml-2" /></div>;
+    if (msg.delivered) return <div className="flex"><Check className="h-4 w-4 text-gray-500" /><Check className="h-4 w-4 text-gray-500 -ml-2" /></div>;
+    return <Check className="h-4 w-4 text-gray-300" />;
+  };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-100">
-      <div className="bg-green-600 p-4 text-white flex items-center">
-        <img
-          src={selectedUser.photoURL || 'https://via.placeholder.com/40'}
-          alt={selectedUser.displayName}
-          className="w-10 h-10 rounded-full mr-3"
-        />
-        <h2 className="text-xl font-bold">{selectedUser.displayName}</h2>
+    <div className="w-2/3 flex flex-col">
+      <div className="p-6 border-b border-gray-200 border-opacity-50">
+        <div className="flex items-center">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center mr-3">
+            {selectedUser.photoURL ? (
+              <img src={selectedUser.photoURL} alt={selectedUser.displayName} className="w-10 h-10 rounded-full" />
+            ) : (
+              <span className="text-xl font-bold text-white">{selectedUser.displayName[0]}</span>
+            )}
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">{selectedUser.displayName}</h2>
+            <p className="text-sm text-gray-500">Online</p>
+          </div>
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
-        {filteredMessages.length > 0 ? (
-          filteredMessages.map((msg: any, index: number) => (
+      <div className="flex-grow p-6 overflow-y-auto">
+        {messages.map((msg: any, index: number) => (
+          <div
+            key={index}
+            className={`flex ${
+              msg.uid === currentUser.uid ? 'justify-end' : 'justify-start'
+            } mb-4`}
+          >
             <div
-              key={index}
-              className={`flex ${
-                msg.uid === currentUser.uid ? 'justify-end' : 'justify-start'
-              } mb-4`}
+              className={`max-w-[70%] rounded-2xl p-4 ${
+                msg.uid === currentUser.uid
+                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white'
+                  : 'bg-white bg-opacity-50 text-gray-800'
+              }`}
             >
-              <div
-                className={`max-w-xs p-3 rounded-lg ${
-                  msg.uid === currentUser.uid ? 'bg-green-200' : 'bg-white'
-                }`}
-              >
-                <p>{msg.text}</p>
-                <p className="text-xs text-gray-500 mt-1">
+              <p>{msg.text}</p>
+              <div className="flex items-center justify-end mt-1">
+                <span className="text-xs opacity-70 mr-1">
                   {msg.createdAt?.toDate().toLocaleTimeString()}
-                </p>
+                </span>
+                {renderMessageStatus(msg)}
               </div>
             </div>
-          ))
-        ) : (
-          <div className="text-center text-gray-500">No messages yet</div>
-        )}
+          </div>
+        ))}
         <div ref={bottomRef} />
       </div>
-      <form onSubmit={sendMessage} className="bg-white p-4 border-t">
-        <div className="flex items-center">
+      <div className="p-6 bg-white bg-opacity-50">
+        <form onSubmit={sendMessage} className="flex items-center space-x-4">
+          <button type="button" className="text-gray-500 hover:text-indigo-600" aria-label="Attach file">
+            <Paperclip className="h-5 w-5" />
+          </button>
           <input
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type a message"
-            className="flex-1 rounded-full py-2 px-4 bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+            placeholder="Type a message..."
+            className="flex-grow bg-white bg-opacity-50 border-none rounded-full py-2 px-4 focus:ring-2 focus:ring-indigo-500 transition-all duration-300"
           />
-          <button
-            type="submit"
-            className="ml-2 bg-green-500 text-white rounded-full p-2 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500"
-            aria-label="Send message"
-          >
-            <Send size={20} />
+          <button type="button" className="text-gray-500 hover:text-indigo-600" aria-label="Voice message">
+            <Mic className="h-5 w-5" />
           </button>
-        </div>
-      </form>
+          <button type="submit" className="rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-2 hover:opacity-90 transition-all duration-300" aria-label="Send message">
+            <Send className="h-5 w-5" />
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

@@ -15,15 +15,13 @@ function App() {
 
   return (
     <Router>
-      <div className="h-screen bg-gray-100">
-        <Routes>
-          <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-          <Route
-            path="/*"
-            element={user ? <ChatLayout /> : <Navigate to="/login" replace />}
-          />
-        </Routes>
-      </div>
+      <Routes>
+        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+        <Route
+          path="/*"
+          element={user ? <ChatLayout /> : <Navigate to="/login" replace />}
+        />
+      </Routes>
     </Router>
   );
 }
