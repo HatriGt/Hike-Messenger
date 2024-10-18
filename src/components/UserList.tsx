@@ -127,8 +127,8 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
 
   return (
     <div className="w-1/3 border-r border-gray-200 flex flex-col bg-white">
-      <div className="p-6">
-        {/* Enhanced user profile and action buttons section */}
+      <div className="p-6 flex flex-col h-full">
+        {/* User profile and action buttons section */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
             <div className="w-12 h-12 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-4 shadow-md">
@@ -157,7 +157,7 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
           </div>
         </div>
 
-        {/* Enhanced search input */}
+        {/* Search input */}
         <div className="relative mb-6">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
@@ -169,39 +169,41 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
           />
         </div>
 
-        {/* User list with adjusted height */}
-        <div className="overflow-y-auto h-[calc(100vh-220px)]">
-          {users.map((user) => {
-            const lastMessage = lastMessages[user.id];
-            return (
-              <div
-                key={user.id}
-                className={`flex items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer mb-2 transition-colors duration-200 ${
-                  selectedUser?.id === user.id ? "bg-gray-100" : ""
-                }`}
-                onClick={() => onSelectUser(user)}
-              >
-                <div className="w-12 h-12 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3 shadow-sm">
-                  {user.photoURL ? (
-                    <img src={user.photoURL} alt={user.displayName} className="w-12 h-12 rounded-full" />
-                  ) : (
-                    <span className="text-2xl font-bold text-white">{user.displayName[0]}</span>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-gray-800">{user.displayName}</span>
-                    <span className="text-xs text-gray-400">
-                      {lastMessage ? formatTime(lastMessage.createdAt) : ''}
-                    </span>
+        {/* User list with fixed height and scrollable content */}
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full overflow-y-auto pr-2">
+            {users.map((user) => {
+              const lastMessage = lastMessages[user.id];
+              return (
+                <div
+                  key={user.id}
+                  className={`flex items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer mb-2 transition-colors duration-200 ${
+                    selectedUser?.id === user.id ? "bg-gray-100" : ""
+                  }`}
+                  onClick={() => onSelectUser(user)}
+                >
+                  <div className="w-12 h-12 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3 shadow-sm">
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt={user.displayName} className="w-12 h-12 rounded-full" />
+                    ) : (
+                      <span className="text-2xl font-bold text-white">{user.displayName[0]}</span>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-500 truncate">
-                    {lastMessage ? lastMessage.text : 'No messages yet'}
-                  </p>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-gray-800">{user.displayName}</span>
+                      <span className="text-xs text-gray-400">
+                        {lastMessage ? formatTime(lastMessage.createdAt) : ''}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 truncate">
+                      {lastMessage ? lastMessage.text : 'No messages yet'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
       {showNewChatPopup && (
