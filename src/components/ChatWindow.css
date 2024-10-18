@@ -1,0 +1,19 @@
+.chat-header {
+  position: sticky;
+  top: 0;
+  background-color: #f0f0f0;
+  padding: 10px;
+  border-bottom: 1px solid #ccc;
+  z-index: 1000;
+}
+
+.chat-header h2 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+.messages-container {
+  overflow-y: auto;
+  max-height: calc(100vh - 150px); /* Adjust based on your layout */
+  padding: 10px;
+}

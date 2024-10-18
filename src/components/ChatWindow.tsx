@@ -3,6 +3,7 @@ import { collection, query, orderBy, limit, addDoc, serverTimestamp, where, upda
 import { db } from '../firebase';
 import { Send, Paperclip, Smile, Check } from 'lucide-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+import './ChatWindow.css';
 
 interface ChatWindowProps {
   currentUser: any;
@@ -136,7 +137,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
 
   return (
     <div className="flex-1 flex flex-col bg-white max-w-4xl mx-auto w-full">
-      <div className="p-4 border-b border-gray-200 flex items-center">
+      {/* Update the header to be fixed */}
+      <div className="sticky top-0 z-10 p-4 border-b border-gray-200 flex items-center bg-white shadow-sm">
         <div className="w-10 h-10 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3">
           {selectedUser.photoURL ? (
             <img src={selectedUser.photoURL} alt={selectedUser.displayName} className="w-10 h-10 rounded-full" />
@@ -149,6 +151,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
           <p className="text-sm text-gray-500">Online</p>
         </div>
       </div>
+
       <div className="flex-grow p-4 pr-6 overflow-y-auto bg-[#E8EEF1]">
         {messages.map((msg: any, index: number) => {
           const isEmoji = isOnlyEmojis(msg.text);
