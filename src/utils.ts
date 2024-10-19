@@ -1,12 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 
-export const formatTimestamp = (timestamp: Timestamp | null | undefined): string => {
+export const formatTimestamp = (timestamp: any) => {
   if (!timestamp) return '';
-  
   const date = timestamp.toDate();
-  return date.toLocaleString('en-US', {
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: true
-  });
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };

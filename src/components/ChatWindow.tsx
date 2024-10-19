@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { User, Message } from '../types';
 import { formatTimestamp } from '../utils';
+import notificationSound from '../media/tones/NotificationTone.mp3';
 
 interface ChatWindowProps {
   currentUser: User;
@@ -18,10 +19,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [prevMessagesLength, setPrevMessagesLength] = useState(0);
   const messagesRef = collection(db, 'messages');
   const bottomRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const audio = useRef(new Audio(notificationSound));
+  const [lastReceivedMessageId, setLastReceivedMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -65,7 +69,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+
+    // Check if a new message has been received (not sent)
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.uid !== currentUser.uid && lastMessage.id !== lastReceivedMessageId) {
+      // Play the notification sound
+      audio.current.play().catch(error => console.error("Error playing audio:", error));
+      // Update the last received message ID
+      setLastReceivedMessageId(lastMessage.id);
+    }
+
+    // Update the previous messages length
+    setPrevMessagesLength(messages.length);
+  }, [messages, currentUser.uid, lastReceivedMessageId]);
 
   useEffect(() => {
     const markMessagesAsRead = async () => {
