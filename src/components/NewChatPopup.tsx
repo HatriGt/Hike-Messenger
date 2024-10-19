@@ -36,7 +36,7 @@ const NewChatPopup: React.FC<NewChatPopupProps> = ({ users, onClose, onSelectUse
 
   const handleSelectUser = (user: User) => {
     onSelectUser(user);
-    onClose();
+    // We don't need to call onClose() here anymore, as it's handled in UserList component
   };
 
   return (

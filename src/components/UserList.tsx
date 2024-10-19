@@ -26,7 +26,7 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
   const [lastMessages, setLastMessages] = useState<{[key: string]: LastMessage}>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewChatPopup, setShowNewChatPopup] = useState(false);
-  const [newChatUsers, setNewChatUsers] = useState<User[]>([]);
+  const [usersWithHistory, setUsersWithHistory] = useState<User[]>([]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -34,6 +34,7 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
     const fetchLastMessages = async () => {
       const messagesRef = collection(db, 'messages');
       const lastMessagesMap: {[key: string]: LastMessage} = {};
+      const usersWithChat: User[] = [];
 
       for (const user of users) {
         const q = query(
@@ -51,14 +52,12 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
             text: lastMessage.text,
             createdAt: lastMessage.createdAt?.toDate()
           };
+          usersWithChat.push(user);
         }
       }
 
       setLastMessages(lastMessagesMap);
-      
-      // Filter out users that the current user has already chatted with
-      const newUsers = users.filter(user => !lastMessagesMap[user.id]);
-      setNewChatUsers(newUsers);
+      setUsersWithHistory(usersWithChat);
     };
 
     fetchLastMessages();
@@ -85,6 +84,16 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
               };
               if (!prevMessage || (newMessage.createdAt && (!prevMessage.createdAt || newMessage.createdAt > prevMessage.createdAt))) {
                 return { ...prev, [otherUserId]: newMessage };
+              }
+              return prev;
+            });
+            
+            // Add the user to usersWithHistory if not already present
+            setUsersWithHistory(prev => {
+              const userExists = prev.some(u => u.id === otherUserId);
+              if (!userExists) {
+                const newUser = users.find(u => u.id === otherUserId);
+                return newUser ? [...prev, newUser] : prev;
               }
               return prev;
             });
@@ -122,6 +131,21 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
   };
 
   const handleCloseNewChatPopup = () => {
+    setShowNewChatPopup(false);
+  };
+
+  const filteredUsers = usersWithHistory.filter(user =>
+    user.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleNewChatUserSelect = (user: User) => {
+    setUsersWithHistory(prev => {
+      if (!prev.some(u => u.id === user.id)) {
+        return [...prev, user];
+      }
+      return prev;
+    });
+    onSelectUser(user);
     setShowNewChatPopup(false);
   };
 
@@ -172,7 +196,7 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
         {/* User list with fixed height and scrollable content */}
         <div className="flex-1 overflow-hidden">
           <div className="h-full overflow-y-auto pr-2">
-            {users.map((user) => {
+            {filteredUsers.map((user) => {
               const lastMessage = lastMessages[user.id];
               return (
                 <div
@@ -208,9 +232,9 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
       </div>
       {showNewChatPopup && (
         <NewChatPopup
-          users={newChatUsers}
+          users={users.filter(user => !usersWithHistory.some(u => u.id === user.id))}
           onClose={handleCloseNewChatPopup}
-          onSelectUser={onSelectUser}
+          onSelectUser={handleNewChatUserSelect}
         />
       )}
     </div>
