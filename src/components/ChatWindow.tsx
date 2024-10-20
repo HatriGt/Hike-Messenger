@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, orderBy, limit, addDoc, serverTimestamp, where, updateDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Send, Paperclip, Smile, Check } from 'lucide-react';
+import { Send, Paperclip, Smile, Check, WifiOff } from 'lucide-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import './ChatWindow.css';
 import { useNavigate } from 'react-router-dom';
@@ -19,13 +19,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [prevMessagesLength, setPrevMessagesLength] = useState(0);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const messagesRef = collection(db, 'messages');
   const bottomRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const audio = useRef(new Audio(notificationSound));
   const [lastReceivedMessageId, setLastReceivedMessageId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -78,9 +91,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
       // Update the last received message ID
       setLastReceivedMessageId(lastMessage.id);
     }
-
-    // Update the previous messages length
-    setPrevMessagesLength(messages.length);
   }, [messages, currentUser.uid, lastReceivedMessageId]);
 
   useEffect(() => {
@@ -104,6 +114,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() === '') return;
+
+    if (!isOnline) {
+      alert("You are currently offline. Please check your internet connection and try again.");
+      return;
+    }
 
     try {
       const newMessage = {
@@ -145,8 +160,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
           {formatTimestamp(message.createdAt)}
           {message.uid === currentUser?.uid && (
             <span className="read-status">
-              ✓✓
-              {message.read && <span className="read-indicator">R</span>}
+              {message.read ? (
+                <>
+                  <Check className="h-3 w-3" />
+                  <Check className="h-3 w-3 -ml-1" />
+                  <span className="read-indicator">R</span>
+                </>
+              ) : message.delivered ? (
+                <>
+                  <Check className="h-3 w-3" />
+                  <Check className="h-3 w-3 -ml-1" />
+                </>
+              ) : (
+                <Check className="h-3 w-3" />
+              )}
             </span>
           )}
         </span>
@@ -178,7 +205,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
 
   return (
     <div className="flex-1 flex flex-col bg-white max-w-4xl mx-auto w-full">
-      {/* Update the header to be fixed */}
       <div className="sticky top-0 z-10 p-4 border-b border-gray-200 flex items-center bg-white shadow-sm">
         <div className="w-10 h-10 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3">
           {selectedUser.photoURL ? (
@@ -189,7 +215,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
         </div>
         <div>
           <h2 className="text-lg font-semibold text-gray-800">{selectedUser.displayName}</h2>
-          <p className="text-sm text-gray-500">Online</p>
+          <p className="text-sm text-gray-500">{isOnline ? 'Online' : 'Offline'}</p>
         </div>
       </div>
 
@@ -230,11 +256,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
         <div ref={bottomRef} />
       </div>
       <div className="p-4 bg-white">
+        {!isOnline && (
+          <div className="mb-2 flex items-center justify-center text-red-500">
+            <WifiOff className="h-4 w-4 mr-2" />
+            <span>You are offline. Messages cannot be sent at this time.</span>
+          </div>
+        )}
         <form onSubmit={sendMessage} className="flex items-center space-x-2">
           <button 
             type="button" 
             className="text-gray-500 hover:text-[#4E9FE5]" 
             aria-label="Attach file"
+            disabled={!isOnline}
           >
             <Paperclip className="h-5 w-5" />
           </button>
@@ -243,6 +276,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
             className="text-gray-500 hover:text-[#4E9FE5]" 
             aria-label="Emoji"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            disabled={!isOnline}
           >
             <Smile className="h-5 w-5" />
           </button>
@@ -251,8 +285,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type a message..."
+              placeholder={isOnline ? "Type a message..." : "You are offline"}
               className="w-full bg-gray-100 border-none rounded-full py-3 px-6 focus:ring-2 focus:ring-[#4E9FE5] transition-all duration-300"
+              disabled={!isOnline}
             />
             {showEmojiPicker && (
               <div ref={emojiPickerRef} className="absolute bottom-12 left-0">
@@ -262,8 +297,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
           </div>
           <button 
             type="submit" 
-            className="rounded-full bg-[#4E9FE5] text-white p-3 hover:bg-opacity-90 transition-all duration-300" 
+            className={`rounded-full ${isOnline ? 'bg-[#4E9FE5] hover:bg-opacity-90' : 'bg-gray-400 cursor-not-allowed'} text-white p-3 transition-all duration-300`}
             aria-label="Send message"
+            disabled={!isOnline}
           >
             <Send className="h-5 w-5" />
           </button>
