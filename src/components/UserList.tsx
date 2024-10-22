@@ -82,9 +82,6 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const updatedLastMessages: {[key: string]: LastMessage} = { ...lastMessages };
-      const updatedUsersWithHistory = new Set(usersWithHistory);
-
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added' || change.type === 'modified') {
           const message = change.doc.data();
@@ -98,23 +95,40 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
               delivered: message.delivered
             };
 
-            // Always update with the most recent message
-            if (!updatedLastMessages[otherUserId] || 
-                (newMessage.createdAt && newMessage.createdAt > updatedLastMessages[otherUserId].createdAt)) {
-              updatedLastMessages[otherUserId] = newMessage;
-            }
+            setLastMessages(prevMessages => {
+              const currentMessage = prevMessages[otherUserId];
+              if (!currentMessage || newMessage.createdAt > currentMessage.createdAt) {
+                return {
+                  ...prevMessages,
+                  [otherUserId]: newMessage
+                };
+              } else if (currentMessage.uid === newMessage.uid) {
+                // Update status of existing message
+                return {
+                  ...prevMessages,
+                  [otherUserId]: {
+                    ...currentMessage,
+                    read: newMessage.read,
+                    delivered: newMessage.delivered
+                  }
+                };
+              }
+              return prevMessages;
+            });
 
             // Add user to usersWithHistory if not already present
             const newUser = users.find(u => u.id === otherUserId);
             if (newUser) {
-              updatedUsersWithHistory.add(newUser);
+              setUsersWithHistory(prevUsers => {
+                if (!prevUsers.some(u => u.id === newUser.id)) {
+                  return [...prevUsers, newUser];
+                }
+                return prevUsers;
+              });
             }
           }
         }
       });
-
-      setLastMessages(updatedLastMessages);
-      setUsersWithHistory(Array.from(updatedUsersWithHistory));
     });
 
     return () => unsubscribe();
@@ -137,21 +151,25 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
   const renderMessageStatus = (lastMessage: LastMessage | undefined) => {
     if (!lastMessage || !currentUser) return null;
     if (lastMessage.uid === currentUser.uid) {
-      if (lastMessage.read) return (
-        <div className="flex items-center">
+      if (lastMessage.read) {
+        return (
+          <div className="flex items-center">
+            <div className="flex">
+              <Check className="h-3 w-3 text-gray-500" />
+              <Check className="h-3 w-3 text-gray-500 -ml-1.5" />
+            </div>
+            <span className="text-xs text-gray-500 ml-0.5">R</span>
+          </div>
+        );
+      }
+      if (lastMessage.delivered) {
+        return (
           <div className="flex">
             <Check className="h-3 w-3 text-gray-500" />
             <Check className="h-3 w-3 text-gray-500 -ml-1.5" />
           </div>
-          <span className="text-xs text-gray-500 ml-0.5">R</span>
-        </div>
-      );
-      if (lastMessage.delivered) return (
-        <div className="flex">
-          <Check className="h-3 w-3 text-gray-500" />
-          <Check className="h-3 w-3 text-gray-500 -ml-1.5" />
-        </div>
-      );
+        );
+      }
       return <Check className="h-3 w-3 text-gray-500" />;
     }
     return null;
