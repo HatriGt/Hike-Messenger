@@ -13,14 +13,14 @@ const App: React.FC = () => {
   const updateUserInFirestore = async (currentUser: User) => {
     if (currentUser.email && auth.currentUser) {
       try {
-        const userRef = doc(db, 'users', currentUser.email);
+        const userRef = doc(db, 'users', currentUser.uid);
         const userSnap = await getDoc(userRef);
 
         const userData = {
           email: currentUser.email,
           displayName: currentUser.displayName,
           photoURL: currentUser.photoURL,
-          lastLogin: new Date(),
+          lastSignIn: new Date(),
           uid: currentUser.uid,
         };
 
