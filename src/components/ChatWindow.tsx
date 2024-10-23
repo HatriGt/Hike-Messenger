@@ -8,7 +8,6 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { User, Message } from '../types';
 import { formatTimestamp } from '../utils';
-import notificationSound from '../media/tones/NotificationTone.mp3';
 
 interface ChatWindowProps {
   currentUser: User;
@@ -24,8 +23,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
   const bottomRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const audio = useRef(new Audio(notificationSound));
-  const [lastReceivedMessageId, setLastReceivedMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -82,16 +79,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-
-    // Check if a new message has been received (not sent)
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.uid !== currentUser.uid && lastMessage.id !== lastReceivedMessageId) {
-      // Play the notification sound
-      audio.current.play().catch(error => console.error("Error playing audio:", error));
-      // Update the last received message ID
-      setLastReceivedMessageId(lastMessage.id);
-    }
-  }, [messages, currentUser.uid, lastReceivedMessageId]);
+  }, [messages]);
 
   useEffect(() => {
     const markMessagesAsRead = async () => {

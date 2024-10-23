@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { collection, query, orderBy, limit, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Search, Plus, Bell, Settings, Check } from 'lucide-react';
 import NewChatPopup from './NewChatPopup';
+import notificationSound from '../media/tones/NotificationTone.mp3';
 
 interface User {
   id: string;
@@ -30,18 +31,31 @@ interface LastMessage {
   delivered: boolean;
 }
 
+interface UnreadCount {
+  [key: string]: number;
+}
+
 const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, currentUser }) => {
   const [lastMessages, setLastMessages] = useState<{[key: string]: LastMessage}>({});
+  const [unreadCounts, setUnreadCounts] = useState<UnreadCount>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewChatPopup, setShowNewChatPopup] = useState(false);
   const [usersWithHistory, setUsersWithHistory] = useState<User[]>([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [prevUnreadCounts, setPrevUnreadCounts] = useState<UnreadCount>({});
+  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  useEffect(() => {
+    notificationAudioRef.current = new Audio('../media/tones/NotificationTone.mp3');
+  }, []);
+  const audio = useRef(new Audio(notificationSound));
   useEffect(() => {
     if (!currentUser) return;
 
     const fetchLastMessages = async () => {
       const messagesRef = collection(db, 'messages');
       const lastMessagesMap: {[key: string]: LastMessage} = {};
+      const unreadCountsMap: UnreadCount = {};
       const usersWithChat: User[] = [];
 
       for (const user of users) {
@@ -50,7 +64,7 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
           where('participants', 'array-contains', currentUser.uid),
           where('participants', 'array-contains', user.id),
           orderBy('createdAt', 'desc'),
-          limit(1)
+          limit(50) // Increased limit to fetch more messages for unread count
         );
 
         const querySnapshot = await getDocs(q);
@@ -64,10 +78,20 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
             delivered: lastMessage.delivered
           };
           usersWithChat.push(user);
+
+          // Calculate unread count
+          const unreadCount = querySnapshot.docs.reduce((count, doc) => {
+            const message = doc.data();
+            return message.uid !== currentUser.uid && !message.read ? count + 1 : count;
+          }, 0);
+          if (unreadCount > 0) {
+            unreadCountsMap[user.id] = unreadCount;
+          }
         }
       }
 
       setLastMessages(lastMessagesMap);
+      setUnreadCounts(unreadCountsMap);
       setUsersWithHistory(usersWithChat);
     };
 
@@ -82,61 +106,69 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added' || change.type === 'modified') {
-          const message = change.doc.data();
-          const otherUserId = message.participants.find((id: string) => id !== currentUser.uid);
-          if (otherUserId) {
-            const newMessage = {
-              text: message.text,
-              createdAt: message.createdAt?.toDate(),
-              uid: message.uid,
-              read: message.read,
-              delivered: message.delivered
-            };
+      const updatedLastMessages: {[key: string]: LastMessage} = {};
+      const updatedUnreadCounts: UnreadCount = {};
 
-            setLastMessages(prevMessages => {
-              const currentMessage = prevMessages[otherUserId];
-              if (!currentMessage || newMessage.createdAt > currentMessage.createdAt) {
-                return {
-                  ...prevMessages,
-                  [otherUserId]: newMessage
-                };
-              } else if (currentMessage.uid === newMessage.uid) {
-                // Update status of existing message
-                return {
-                  ...prevMessages,
-                  [otherUserId]: {
-                    ...currentMessage,
-                    read: newMessage.read,
-                    delivered: newMessage.delivered
-                  }
-                };
-              }
-              return prevMessages;
-            });
+      snapshot.docs.forEach((doc) => {
+        const message = doc.data();
+        const otherUserId = message.participants.find((id: string) => id !== currentUser.uid);
+        if (otherUserId) {
+          const newMessage = {
+            text: message.text,
+            createdAt: message.createdAt?.toDate(),
+            uid: message.uid,
+            read: message.read,
+            delivered: message.delivered
+          };
 
-            // Add user to usersWithHistory if not already present
-            const newUser = users.find(u => u.id === otherUserId);
-            if (newUser) {
-              setUsersWithHistory(prevUsers => {
-                if (!prevUsers.some(u => u.id === newUser.id)) {
-                  return [...prevUsers, newUser];
-                }
-                return prevUsers;
-              });
-            }
+          // Update last message
+          if (!updatedLastMessages[otherUserId] || newMessage.createdAt > updatedLastMessages[otherUserId].createdAt) {
+            updatedLastMessages[otherUserId] = newMessage;
+          }
+
+          // Update unread count
+          if (message.uid !== currentUser.uid && !message.read) {
+            updatedUnreadCounts[otherUserId] = (updatedUnreadCounts[otherUserId] || 0) + 1;
           }
         }
       });
+
+      setLastMessages(prevMessages => ({...prevMessages, ...updatedLastMessages}));
+      setUnreadCounts(updatedUnreadCounts);
+      setPrevUnreadCounts(prevCounts => {
+        const hasNewUnreadMessages = Object.keys(updatedUnreadCounts).some(
+          userId => updatedUnreadCounts[userId] > (prevCounts[userId] || 0)
+        );
+
+        if (hasNewUnreadMessages && notificationAudioRef.current) {
+          // notificationAudioRef.current.play().catch(error => console.error('Error playing notification sound:', error));
+          audio.current.play().catch(error => console.error('Error playing notification sound:', error));
+        }
+
+        return updatedUnreadCounts;
+      });
+
+      // Update usersWithHistory
+      const newUsersWithHistory = users.filter(user => 
+        updatedLastMessages[user.id] || updatedUnreadCounts[user.id]
+      );
+      setUsersWithHistory(newUsersWithHistory);
     });
 
     return () => unsubscribe();
   }, [users, currentUser]);
 
-  const formatTime = (date: Date | undefined) => {
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = useCallback((date: Date | undefined) => {
     if (!date) return '';
-    const now = new Date();
+    const now = currentTime;
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(minutes / 60);
@@ -146,9 +178,9 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
     if (hours > 0) return `${hours}h`;
     if (minutes > 0) return `${minutes}m`;
     return 'Now';
-  };
+  }, [currentTime]);
 
-  const renderMessageStatus = (lastMessage: LastMessage | undefined) => {
+  const renderMessageStatus = (lastMessage: LastMessage | undefined, userId: string) => {
     if (!lastMessage || !currentUser) return null;
     if (lastMessage.uid === currentUser.uid) {
       if (lastMessage.read) {
@@ -171,6 +203,15 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
         );
       }
       return <Check className="h-3 w-3 text-gray-500" />;
+    }
+    const unreadCount = unreadCounts[userId];
+    debugger
+    if (unreadCount) {
+      return (
+        <div className="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+          {unreadCount}
+        </div>
+      );
     }
     return null;
   };
@@ -196,6 +237,22 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
     });
     onSelectUser(user);
     setShowNewChatPopup(false);
+  };
+
+  const renderMessageText = (lastMessage: LastMessage | undefined, userId: string) => {
+    const unreadCount = unreadCounts[userId] || 0;
+    const messageText = lastMessage ? (
+      <>
+        {lastMessage.uid === currentUser.uid ? 'You: ' : ''}
+        {lastMessage.text}
+      </>
+    ) : 'No messages yet';
+
+    return (
+      <p className={`text-sm ${unreadCount > 0 ? 'font-bold text-gray-800' : 'text-gray-500'} truncate flex-grow`}>
+        {messageText}
+      </p>
+    );
   };
 
   return (
@@ -270,16 +327,9 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
                       </span>
                     </div>
                     <div className="flex items-center">
-                      <p className="text-sm text-gray-500 truncate flex-grow">
-                        {lastMessage ? (
-                          <>
-                            {lastMessage.uid === currentUser.uid ? 'You: ' : ''}
-                            {lastMessage.text}
-                          </>
-                        ) : 'No messages yet'}
-                      </p>
+                      {renderMessageText(lastMessage, user.id)}
                       <div className="ml-2 flex-shrink-0">
-                        {renderMessageStatus(lastMessage)}
+                        {renderMessageStatus(lastMessage, user.id)}
                       </div>
                     </div>
                   </div>
