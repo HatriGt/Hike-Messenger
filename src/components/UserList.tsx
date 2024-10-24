@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { Search, Plus, Bell, Settings, Check } from 'lucide-react';
 import NewChatPopup from './NewChatPopup';
 import notificationSound from '../media/tones/NotificationTone.mp3';
+import { useMediaQuery } from '@mui/material';
 
 interface User {
   id: string;
@@ -44,6 +45,7 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [prevUnreadCounts, setPrevUnreadCounts] = useState<UnreadCount>({});
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
+  const isMobile = useMediaQuery('(max-width:768px)');
 
   useEffect(() => {
     notificationAudioRef.current = new Audio('../media/tones/NotificationTone.mp3');
@@ -256,7 +258,7 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
   };
 
   return (
-    <div className="w-1/3 border-r border-gray-200 flex flex-col bg-white">
+    <div className={`${isMobile ? 'w-full h-full' : 'w-1/3'} border-r border-gray-200 flex flex-col bg-white`}>
       <div className="p-6 flex flex-col h-full">
         {/* User profile and action buttons section */}
         <div className="flex items-center justify-between mb-6">

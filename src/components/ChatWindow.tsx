@@ -12,9 +12,16 @@ import { formatTimestamp } from '../utils';
 interface ChatWindowProps {
   currentUser: User;
   selectedUser: User;
+  onBack?: () => void;
+  isMobile: boolean;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ 
+  currentUser, 
+  selectedUser, 
+  onBack,
+  isMobile 
+}) => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -194,6 +201,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, selectedUser }) =>
   return (
     <div className="flex-1 flex flex-col bg-white max-w-4xl mx-auto w-full">
       <div className="sticky top-0 z-10 p-4 border-b border-gray-200 flex items-center bg-white shadow-sm">
+        {isMobile && (
+          <button 
+            onClick={onBack}
+            className="mr-3 p-2 rounded-full hover:bg-gray-100"
+            aria-label="Back"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
         <div className="w-10 h-10 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3">
           {selectedUser.photoURL ? (
             <img src={selectedUser.photoURL} alt={selectedUser.displayName || ''} className="w-10 h-10 rounded-full" />
