@@ -4,12 +4,14 @@ import { collection, query, onSnapshot, getDocs, where, updateDoc, doc } from 'f
 import { auth, db } from '../firebase';
 import UserList from './UserList';
 import ChatWindow from './ChatWindow';
-import { IconButton, Avatar, Popover, Box, Typography, Button, CircularProgress, Fade, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { IconButton, Avatar, Popover, Box, Typography, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import { styled } from '@mui/material/styles';
+import { useMediaQuery } from '@mui/material';
+import HikeLogo from '../media/images/HikeLogo.png'; // Make sure this path is correct
 
 // Styled components for custom Dialog
 const StyledDialog = styled(Dialog)(({ theme }) => ({
@@ -20,10 +22,10 @@ const StyledDialog = styled(Dialog)(({ theme }) => ({
   },
 }));
 
-const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
+const StyledDialogTitle = styled(DialogTitle)({
   color: '#4E9FE5',
   fontWeight: 'bold',
-}));
+});
 
 const StyledDialogContent = styled(DialogContent)({
   color: '#666',
@@ -45,6 +47,8 @@ const ChatLayout: React.FC = () => {
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
+  const isMobile = useMediaQuery('(max-width:768px)');
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -53,7 +57,7 @@ const ChatLayout: React.FC = () => {
           const usersRef = collection(db, 'users');
           const querySnapshot = await getDocs(usersRef);
           const userList = querySnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .map(doc => ({ id: doc.id, ...doc.data() } as User))
             .filter(u => u.id !== user.uid);
           setUsers(userList);
         } catch (error) {
@@ -68,7 +72,7 @@ const ChatLayout: React.FC = () => {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       try {
         const userList = querySnapshot.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .map((doc) => ({ id: doc.id, ...doc.data() } as User))
           .filter((u) => u.id !== user?.uid);
         setUsers(userList);
       } catch (error) {
@@ -130,94 +134,146 @@ const ChatLayout: React.FC = () => {
   const open = Boolean(anchorEl);
   const id = open ? 'user-popover' : undefined;
 
+  const handleMobileUserSelect = (user: User) => {
+    setSelectedUser(user);
+    setShowChat(true);
+  };
+
+  const handleBackToUsers = () => {
+    setShowChat(false);
+    setSelectedUser(null);
+  };
+
   return (
-    <div className="h-screen bg-[#E8EEF1] p-4 flex justify-center items-center">
-      <div className="w-full h-full max-w-7xl bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col">
-        <div className="bg-[#4E9FE5] p-4 flex justify-between items-center rounded-t-3xl">
-          <h1 className="text-3xl font-bold text-white">hi</h1>
-          <IconButton onClick={handleSettingsClick} sx={{ color: 'white' }}>
-            <SettingsIcon />
-          </IconButton>
-          <Popover
-            id={id}
-            open={open}
-            anchorEl={anchorEl}
-            onClose={handleClose}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            PaperProps={{
-              style: {
-                borderRadius: '20px',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-              },
-            }}
-          >
-            <Box sx={{ 
-              p: 4, 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              bgcolor: 'white',
-              borderRadius: '20px',
-              minWidth: '250px',
-            }}>
-              <Avatar
-                src={auth.currentUser?.photoURL || undefined}
-                alt={auth.currentUser?.displayName || 'User'}
-                sx={{ width: 100, height: 100, mb: 2, bgcolor: '#4E9FE5' }}
+    <div className={`h-screen bg-[#E8EEF1] ${isMobile ? 'p-0' : 'p-4'} flex justify-center items-center`}>
+      <div className={`w-full h-full ${isMobile ? 'rounded-none' : 'max-w-7xl rounded-3xl'} bg-white shadow-xl overflow-hidden flex flex-col`}>
+        {(!isMobile || !showChat) && (
+          <div className={`bg-[#00acff] p-4 flex justify-between items-center ${isMobile ? '' : 'rounded-t-3xl'}`}>
+            <div className="flex items-center">
+              <img 
+                src={HikeLogo} 
+                alt="Hike Logo" 
+                className={`${isMobile ? 'h-11' : 'h-12'} mr-2`} 
               />
-              <Typography variant="h5" gutterBottom sx={{ color: '#333', fontWeight: 'bold' }}>
-                {auth.currentUser?.displayName}
-              </Typography>
-              <Typography variant="body1" sx={{ color: '#666', mb: 3 }}>
-                {auth.currentUser?.email}
-              </Typography>
-              <Button 
-                variant="contained" 
-                onClick={handleLogoutClick}
-                disabled={isLoggingOut}
-                sx={{
-                  bgcolor: '#4E9FE5',
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: '#3D8CD6',
-                  },
-                  borderRadius: '25px',
-                  px: 4,
-                  py: 1,
-                  textTransform: 'none',
-                  fontSize: '1rem',
-                  fontWeight: 'bold',
-                }}
-              >
-                {isLoggingOut ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : (
-                  'Logout'
-                )}
-              </Button>
-            </Box>
-          </Popover>
-        </div>
-        <div className="flex-1 flex overflow-hidden">
-          <UserList 
-            users={users} 
-            onSelectUser={setSelectedUser} 
-            selectedUser={selectedUser} 
-            currentUser={user as User}
-          />
-          {selectedUser ? (
-            <ChatWindow currentUser={user as User} selectedUser={selectedUser} />
-          ) : (
-            <div className="flex-1 flex items-center justify-center bg-white">
-              <p className="text-xl text-gray-500">Select a user to start chatting</p>
             </div>
+            <IconButton onClick={handleSettingsClick} sx={{ color: 'white' }}>
+              <SettingsIcon />
+            </IconButton>
+            <Popover
+              id={id}
+              open={open}
+              anchorEl={anchorEl}
+              onClose={handleClose}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              PaperProps={{
+                style: {
+                  borderRadius: '20px',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                },
+              }}
+            >
+              <Box sx={{ 
+                p: 4, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center',
+                bgcolor: 'white',
+                borderRadius: '20px',
+                minWidth: '250px',
+              }}>
+                <Avatar
+                  src={auth.currentUser?.photoURL || undefined}
+                  alt={auth.currentUser?.displayName || 'User'}
+                  sx={{ width: 100, height: 100, mb: 2, bgcolor: '#4E9FE5' }}
+                />
+                <Typography variant="h5" gutterBottom sx={{ color: '#333', fontWeight: 'bold' }}>
+                  {auth.currentUser?.displayName}
+                </Typography>
+                <Typography variant="body1" sx={{ color: '#666', mb: 3 }}>
+                  {auth.currentUser?.email}
+                </Typography>
+                <Button 
+                  variant="contained" 
+                  onClick={handleLogoutClick}
+                  disabled={isLoggingOut}
+                  sx={{
+                    bgcolor: '#4E9FE5',
+                    color: 'white',
+                    '&:hover': {
+                      bgcolor: '#3D8CD6',
+                    },
+                    borderRadius: '25px',
+                    px: 4,
+                    py: 1,
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {isLoggingOut ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    'Logout'
+                  )}
+                </Button>
+              </Box>
+            </Popover>
+          </div>
+        )}
+
+        <div className="flex-1 flex overflow-hidden">
+          {isMobile ? (
+            // Mobile Layout
+            showChat ? (
+              <ChatWindow 
+                currentUser={user as User} 
+                selectedUser={selectedUser!}
+                onBack={handleBackToUsers}
+                isMobile={true}
+              />
+            ) : (
+              <div className="w-full">
+                {/* Add a container with rounded top corners for the UserList */}
+                <div className="bg-[#00acff]">
+                  <div className="bg-white rounded-t-[20px] overflow-hidden">
+                  <UserList 
+                    users={users} 
+                    onSelectUser={handleMobileUserSelect} 
+                    selectedUser={selectedUser} 
+                    currentUser={user as User}
+                  />
+                  </div>
+                </div>
+              </div>
+            )
+          ) : (
+            // Desktop Layout
+            <>
+              <UserList 
+                users={users} 
+                onSelectUser={setSelectedUser} 
+                selectedUser={selectedUser} 
+                currentUser={user as User}
+              />
+              {selectedUser ? (
+                <ChatWindow 
+                  currentUser={user as User} 
+                  selectedUser={selectedUser}
+                  isMobile={false}
+                />
+              ) : (
+                <div className="flex-1 flex items-center justify-center bg-white">
+                  <p className="text-xl text-gray-500">Select a user to start chatting</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
