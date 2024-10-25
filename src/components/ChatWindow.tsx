@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { User, Message } from '../types';
 import { formatTimestamp } from '../utils';
+import NudgeSendIcon from '../media/images/NudgeSend.svg';
+import NudgeReceiveIcon from '../media/images/NudgeReceive.svg';
 
 interface ChatWindowProps {
   currentUser: User;
@@ -30,6 +32,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const bottomRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const chatAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -147,31 +150,66 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
+  const renderMessageContent = (message: Message) => {
+    if (message.text === ':nudge:') {
+      const isCurrentUser = message.uid === currentUser.uid;
+      const nudgeIcon = isCurrentUser ? NudgeSendIcon : NudgeReceiveIcon;
+      return (
+        <img 
+          src={nudgeIcon} 
+          alt="Nudge" 
+          className="nudge-icon"
+        />
+      );
+    }
+    
+    // Existing message rendering logic
+    return message.text;
+  };
+
   const renderMessage = (message: Message) => {
+    const isNudge = message.text === ':nudge:';
+    const isCurrentUser = message.uid === currentUser.uid;
+    const isEmoji = isOnlyEmojis(message.text);
+
+    const renderStatusIndicators = () => (
+      <div className={`flex items-center text-xs whitespace-nowrap ${isEmoji || isNudge ? 'emoji-status' : ''}`}>
+        <span>{formatTimestamp(message.createdAt)}</span>
+        {isCurrentUser && (
+          <span className="ml-1 read-status">
+            <span className="double-tick">✓✓</span>
+            {message.read && <span className="read-indicator">R</span>}
+          </span>
+        )}
+      </div>
+    );
+
     return (
-      <div className={`message ${message.uid === currentUser?.uid ? 'sent' : 'received'}`} key={message.id}>
-        <p>{message.text}</p>
-        <span className="timestamp">
-          {formatTimestamp(message.createdAt)}
-          {message.uid === currentUser?.uid && (
-            <span className="read-status">
-              {message.read ? (
-                <>
-                  <Check className="h-3 w-3" />
-                  <Check className="h-3 w-3 -ml-1" />
-                  <span className="read-indicator">R</span>
-                </>
-              ) : message.delivered ? (
-                <>
-                  <Check className="h-3 w-3" />
-                  <Check className="h-3 w-3 -ml-1" />
-                </>
-              ) : (
-                <Check className="h-3 w-3" />
-              )}
-            </span>
-          )}
-        </span>
+      <div
+        className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}
+        key={message.id}
+      >
+        {isNudge ? (
+          <div className="nudge-container">
+            {renderMessageContent(message)}
+            {renderStatusIndicators()}
+          </div>
+        ) : (
+          <div
+            className={`max-w-[70%] ${
+              isEmoji ? 'emoji-only' : 'rounded-lg py-1 px-2'
+            } ${
+              isCurrentUser
+                ? isEmoji ? '' : 'bg-[#4E9FE5] text-white message-sent'
+                : isEmoji ? '' : 'bg-white text-gray-800 message-received'
+            }`}
+          >
+            <div className={`flex items-end ${isEmoji ? 'flex-col' : 'justify-between'}`}>
+              <p className={`${isEmoji ? 'text-4xl' : 'text-sm'} mr-2`}>{renderMessageContent(message)}</p>
+              {renderStatusIndicators()}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -197,6 +235,86 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     const emojiRegex = /^[\p{Emoji}]+$/u;
     return emojiRegex.test(text);
   };
+
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Check if the click is not on a message bubble, emoji, or nudge icon
+    if (!(e.target as HTMLElement).closest('.message-sent, .message-received, .emoji-only, .nudge-container')) {
+      sendNudge();
+    }
+  };
+
+  const handleDoubleTap = (() => {
+    let lastTap = 0;
+    const delay = 300; // ms
+
+    return (e: React.TouchEvent<HTMLDivElement>) => {
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTap;
+      if (tapLength < delay && tapLength > 0) {
+        // Check if the tap is not on a message bubble, emoji, or nudge icon
+        if (!(e.target as HTMLElement).closest('.message-sent, .message-received, .emoji-only, .nudge-container')) {
+          sendNudge();
+          if (navigator.vibrate) {
+            navigator.vibrate(200); // Vibrate for 200ms
+          }
+        }
+      }
+      lastTap = currentTime;
+    };
+  })();
+
+  const sendNudge = async () => {
+    if (!isOnline) {
+      alert("You are currently offline. Please check your internet connection and try again.");
+      return;
+    }
+
+    try {
+      const newMessage = {
+        text: ':nudge:',
+        createdAt: serverTimestamp(),
+        uid: currentUser.uid,
+        displayName: currentUser.displayName,
+        photoURL: currentUser.photoURL,
+        recipientUid: selectedUser.id,
+        participants: [currentUser.uid, selectedUser.id],
+        delivered: false,
+        read: false,
+      };
+
+      console.log("Sending nudge:", newMessage);
+      const docRef = await addDoc(messagesRef, newMessage);
+      console.log("Nudge sent, docRef:", docRef.id);
+
+      // Simulate delivery after a short delay
+      setTimeout(async () => {
+        try {
+          await updateDoc(doc(messagesRef, docRef.id), { delivered: true });
+          console.log("Nudge marked as delivered");
+        } catch (error) {
+          console.error("Error marking nudge as delivered:", error);
+        }
+      }, 1000);
+    } catch (error) {
+      console.error("Error sending nudge:", error);
+    }
+  };
+
+  useEffect(() => {
+    const chatArea = chatAreaRef.current;
+    if (chatArea) {
+      const preventDefaultForScrolling = (e: TouchEvent) => {
+        if (e.touches.length > 1) {
+          e.preventDefault();
+        }
+      };
+      
+      chatArea.addEventListener('touchstart', preventDefaultForScrolling, { passive: false });
+      return () => {
+        chatArea.removeEventListener('touchstart', preventDefaultForScrolling);
+      };
+    }
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col bg-white max-w-4xl mx-auto w-full">
@@ -225,40 +343,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
       </div>
 
-      <div className="flex-grow p-4 overflow-y-auto bg-[#E8EEF1]">
-        {messages.map((msg: Message, index: number) => {
-          const isEmoji = isOnlyEmojis(msg.text);
-          return (
-            <div
-              key={index}
-              className={`flex ${
-                msg.uid === currentUser.uid ? 'justify-end' : 'justify-start'
-              } mb-2`}
-            >
-              <div
-                className={`max-w-[70%] ${
-                  isEmoji ? 'emoji-only' : 'rounded-lg py-1 px-2'
-                } ${
-                  msg.uid === currentUser.uid
-                    ? isEmoji ? '' : 'bg-[#4E9FE5] text-white message-sent'
-                    : isEmoji ? '' : 'bg-white text-gray-800 message-received'
-                }`}
-              >
-                <div className={`flex items-end ${isEmoji ? 'flex-col' : 'justify-between'}`}>
-                  <p className={`${isEmoji ? 'text-4xl' : 'text-sm'} mr-2`}>{msg.text}</p>
-                  <div className={`flex items-center text-xs whitespace-nowrap ${isEmoji ? 'emoji-status' : ''}`}>
-                    <span>{formatTimestamp(msg.createdAt)}</span>
-                    {msg.uid === currentUser.uid && (
-                      <span className="ml-1 read-status">
-                        <span className="double-tick">✓✓</span>{msg.read && <span className="read-indicator">R</span>}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div 
+        ref={chatAreaRef}
+        className="flex-grow p-4 overflow-y-auto bg-[#E8EEF1]"
+        onTouchStart={handleDoubleTap}
+        onDoubleClick={handleDoubleClick}
+      >
+        {messages.map((msg: Message) => renderMessage(msg))}
         <div ref={bottomRef} />
       </div>
       <div className="p-4 bg-white">

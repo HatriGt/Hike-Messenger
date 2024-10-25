@@ -111,13 +111,14 @@
 }
 
 .emoji-only {
-  background-color: transparent;
+  background-color: transparent !important;
   padding: 4px;
 }
 
 .emoji-only .text-4xl {
   font-size: 3rem;
   line-height: 1;
+  margin-bottom: 4px;
 }
 
 .emoji-only .text-xs {
@@ -127,22 +128,35 @@
 
 .emoji-status {
   font-size: 0.6rem;
-  opacity: 0.5;
+  opacity: 0.7;
   margin-top: 2px;
-  color: inherit; /* This ensures the color matches the parent text color */
+  color: #666;
 }
 
 .emoji-status .read-status {
   margin-left: 2px;
-  color: inherit; /* This ensures the color matches the parent text color */
+  color: inherit;
 }
 
 .emoji-status .double-tick {
   font-size: 0.7rem;
-  color: inherit; /* This ensures the color matches the parent text color */
+  color: inherit;
 }
 
 .emoji-status .read-indicator {
   font-weight: bold;
-  color: inherit; /* This ensures the color matches the parent text color */
+  color: inherit;
+}
+
+.nudge-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.nudge-icon {
+  width: 55px;
+  height: 40px;
+  margin-bottom: 4px;
 }
