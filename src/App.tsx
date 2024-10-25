@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import ChatLayout from './components/ChatLayout';
 import WelcomePopup from './components/WelcomePopup';
+import SkeletonLoader from './components/ChatWindowSkeletonLoader';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -68,7 +69,7 @@ const App: React.FC = () => {
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <SkeletonLoader />;
   }
 
   return (
