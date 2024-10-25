@@ -5,6 +5,7 @@ import { Search, Plus, Bell, Settings, Check } from 'lucide-react';
 import NewChatPopup from './NewChatPopup';
 import notificationSound from '../media/tones/NotificationTone.mp3';
 import { useMediaQuery } from '@mui/material';
+import './UserList.css';
 
 interface User {
   id: string;
@@ -36,6 +37,22 @@ interface UnreadCount {
   [key: string]: number;
 }
 
+const SkeletonLoader: React.FC = () => {
+  return (
+    <div className="space-y-4">
+      {[...Array(5)].map((_, index) => (
+        <div key={index} className="flex items-center p-3">
+          <div className="w-12 h-12 rounded-full bg-gray-200 mr-3 skeleton"></div>
+          <div className="flex-1">
+            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2 skeleton"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/2 skeleton"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, currentUser }) => {
   const [lastMessages, setLastMessages] = useState<{[key: string]: LastMessage}>({});
   const [unreadCounts, setUnreadCounts] = useState<UnreadCount>({});
@@ -46,15 +63,21 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
   const [prevUnreadCounts, setPrevUnreadCounts] = useState<UnreadCount>({});
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
   const isMobile = useMediaQuery('(max-width:768px)');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     notificationAudioRef.current = new Audio('../media/tones/NotificationTone.mp3');
   }, []);
   const audio = useRef(new Audio(notificationSound));
+  
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
 
     const fetchLastMessages = async () => {
+      setIsLoading(true);
       const messagesRef = collection(db, 'messages');
       const lastMessagesMap: {[key: string]: LastMessage} = {};
       const unreadCountsMap: UnreadCount = {};
@@ -95,11 +118,11 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
       setLastMessages(lastMessagesMap);
       setUnreadCounts(unreadCountsMap);
       setUsersWithHistory(usersWithChat);
+      setIsLoading(false);
     };
 
     fetchLastMessages();
 
-    // Set up real-time listener for new messages and status updates
     const messagesRef = collection(db, 'messages');
     const q = query(
       messagesRef,
@@ -150,11 +173,11 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
         return updatedUnreadCounts;
       });
 
-      // Update usersWithHistory
       const newUsersWithHistory = users.filter(user => 
         updatedLastMessages[user.id] || updatedUnreadCounts[user.id]
       );
       setUsersWithHistory(newUsersWithHistory);
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
@@ -207,7 +230,6 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
       return <Check className="h-3 w-3 text-gray-500" />;
     }
     const unreadCount = unreadCounts[userId];
-    debugger
     if (unreadCount) {
       return (
         <div className="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
@@ -303,42 +325,52 @@ const UserList: React.FC<UserListProps> = ({ users, onSelectUser, selectedUser, 
 
         {/* User list with fixed height and scrollable content */}
         <div className="flex-1 overflow-hidden">
-          <div className="h-full overflow-y-auto pr-2">
-            {filteredUsers.map((user) => {
-              const lastMessage = lastMessages[user.id];
-              return (
-                <div
-                  key={user.id}
-                  className={`flex items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer mb-2 transition-colors duration-200 ${
-                    selectedUser?.id === user.id ? "bg-gray-100" : ""
-                  }`}
-                  onClick={() => onSelectUser(user)}
-                >
-                  <div className="w-12 h-12 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3 shadow-sm">
-                    {user.photoURL ? (
-                      <img src={user.photoURL} alt={user.displayName} className="w-12 h-12 rounded-full" />
-                    ) : (
-                      <span className="text-2xl font-bold text-white">{user.displayName[0]}</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-semibold text-gray-800 truncate">{user.displayName}</span>
-                      <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
-                        {lastMessage ? formatTime(lastMessage.createdAt) : ''}
-                      </span>
+          {isLoading ? (
+            <div className="h-full overflow-y-auto pr-2">
+              <SkeletonLoader />
+            </div>
+          ) : usersWithHistory.length > 0 ? (
+            <div className="h-full overflow-y-auto pr-2">
+              {filteredUsers.map((user) => {
+                const lastMessage = lastMessages[user.id];
+                return (
+                  <div
+                    key={user.id}
+                    className={`flex items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer mb-2 transition-colors duration-200 ${
+                      selectedUser?.id === user.id ? "bg-gray-100" : ""
+                    }`}
+                    onClick={() => onSelectUser(user)}
+                  >
+                    <div className="w-12 h-12 rounded-full bg-[#4E9FE5] flex items-center justify-center mr-3 shadow-sm">
+                      {user.photoURL ? (
+                        <img src={user.photoURL} alt={user.displayName} className="w-12 h-12 rounded-full" />
+                      ) : (
+                        <span className="text-2xl font-bold text-white">{user.displayName[0]}</span>
+                      )}
                     </div>
-                    <div className="flex items-center">
-                      {renderMessageText(lastMessage, user.id)}
-                      <div className="ml-2 flex-shrink-0">
-                        {renderMessageStatus(lastMessage, user.id)}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold text-gray-800 truncate">{user.displayName}</span>
+                        <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                          {lastMessage ? formatTime(lastMessage.createdAt) : ''}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        {renderMessageText(lastMessage, user.id)}
+                        <div className="ml-2 flex-shrink-0">
+                          {renderMessageStatus(lastMessage, user.id)}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              No conversations yet
+            </div>
+          )}
         </div>
       </div>
       {showNewChatPopup && (
