@@ -246,17 +246,31 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const handleDoubleTap = (() => {
     let lastTap = 0;
     const delay = 300; // ms
+    let isHandled = false;
 
     return (e: React.TouchEvent<HTMLDivElement>) => {
+      // Prevent default to avoid any unwanted behavior
+      e.preventDefault();
+      
+      // Return if event was already handled
+      if (isHandled) return;
+
       const currentTime = new Date().getTime();
       const tapLength = currentTime - lastTap;
+      
       if (tapLength < delay && tapLength > 0) {
         // Check if the tap is not on a message bubble, emoji, or nudge icon
         if (!(e.target as HTMLElement).closest('.message-sent, .message-received, .emoji-only, .nudge-container')) {
+          isHandled = true;
           sendNudge();
           if (navigator.vibrate) {
-            navigator.vibrate(200); // Vibrate for 200ms
+            navigator.vibrate(200);
           }
+          
+          // Reset the handled flag after the delay
+          setTimeout(() => {
+            isHandled = false;
+          }, delay);
         }
       }
       lastTap = currentTime;
@@ -346,8 +360,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       <div 
         ref={chatAreaRef}
         className="flex-grow p-4 overflow-y-auto bg-[#E8EEF1]"
-        onTouchStart={handleDoubleTap}
-        onDoubleClick={handleDoubleClick}
+        onTouchStart={isMobile ? handleDoubleTap : undefined}
+        onDoubleClick={isMobile ? undefined : handleDoubleClick}
       >
         {messages.map((msg: Message) => renderMessage(msg))}
         <div ref={bottomRef} />
